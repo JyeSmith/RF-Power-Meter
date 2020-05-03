@@ -75,8 +75,8 @@ void sampleAd8318()
 
   for (int i = 0; i < SCREEN_WIDTH; i++)
   {
-    // samples[i] = map(samples[i], minSample, maxSample, 0, SCREEN_HEIGHT-1);
-    samples[i] = map(samples[i], minSample, maxSample, 0, SCREEN_HEIGHT - 1 - 18);
+    // samples[i] = map(samples[i], minSample, maxSample, 0, SCREEN_HEIGHT - 1 - 18);
+    samples[i] = map(samples[i], minSample, maxSample, SCREEN_HEIGHT - 1 - 18, 0);
   }
 }
 
