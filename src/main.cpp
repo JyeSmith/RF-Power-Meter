@@ -16,7 +16,7 @@ uint32_t samplingPeriod = 0;
 uint16_t minSample = 65535;
 uint16_t maxSample = 0;
 uint32_t meanSample = 0;
-uint8_t minSampledBm = 65535;
+uint8_t minSampledBm = 255;
 uint8_t maxSampledBm = 0;
 uint8_t meanSampledBm = 0;
 
@@ -42,13 +42,8 @@ void sampleAd8318()
   for (int i = 0; i < SCREEN_WIDTH; i++)
   {
 
-    /*
-    Calibrated against an IMRC Tramp V2.0
-    dBm = -0.1656*ADC + 56.73
-    R² = 0.9913
-    */
-
-    float dBm = -0.1656 * samples[i] + 56.73; // Convert raw sample to dBm
+    float mV = (float)samples[i] * (5000.0 / 1023.0);
+    float dBm = mV/-24.5 + 56.0;
 
     samples[i] = pow(10, (dBm / 10.0)); // dBm to mW
 
