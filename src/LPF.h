@@ -46,9 +46,5 @@ public:
     {
         SmoothDataINT = Indata;
         SmoothDataFP = SmoothDataINT << FP_Shift;
-        // for (int i = 0; i < 50; i++)
-        // {
-        //     this->update(Indata);
-        // }
     }
 };
