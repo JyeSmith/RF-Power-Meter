@@ -31,7 +31,7 @@ void sampleAd8318()
   uint32_t adcIn = 0;
 
   #ifdef ARDUINO_TARGET
-    for (int i = 0; i < SCREEN_WIDTH; i++)
+    for (int i = 0; i < SCREEN_WIDTH; ++i)
     {
       adcIn = analogRead(AD8318_PIN);
       adcIn += analogRead(AD8318_PIN);
@@ -124,26 +124,13 @@ void drawPlot()
   display.print(meanSampledBm);
   display.println(" dBm");
 
+  if (maxSampledBm > (ABS_MAX_INPUT_DBM + ATTENUATOR))
+  {
+    display.setCursor(30, 31);
+    display.print("OVER POWER!");
+  }
+  
   display.display();
-}
-
-void drawOverpowerWarning()
-{
-  display.clearDisplay();
-
-  display.setTextSize(1);
-  display.setTextColor(WHITE, BLACK);
-  display.setCursor(30, 31);
-
-  display.print("OVER POWER!");
-
-  display.display();
-}
-
-bool InputWithinBounds() 
-{
-  return (maxSampledBm < (ABS_MAX_INPUT_DBM + ATTENUATOR));
-
 }
 
 void setup()
@@ -170,12 +157,7 @@ void loop()
   {
     sampleAd8318();
 
-    if (InputWithinBounds()) {
-      drawPlot();
-    }
-    else {
-      drawOverpowerWarning();
-    }
+    drawPlot();
     
     previousSampleTime = now;
   }
