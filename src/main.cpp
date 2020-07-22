@@ -1,13 +1,18 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include "LPF.h"
+#include "targets.h"
 
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET -1
-#define AD8318_PIN A3
+#define SCREEN_WIDTH      128
+#define SCREEN_HEIGHT     64
+#define OLED_RESET        -1
+
+#define ABS_MAX_INPUT_DBM -5 // The AD8318 becomes non-linear above -5dB
+#define ATTENUATOR        30 // Value of the attenuator in dB
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+LPF filter;
 
 uint16_t oledRefreshTime = 500; // ms
 uint32_t previousSampleTime = 0;
@@ -23,15 +28,29 @@ uint8_t meanSampledBm = 0;
 void sampleAd8318()
 {
   uint32_t startSampleingTime = millis();
+  uint32_t adcIn = 0;
 
-  uint32_t tempReading = 0;
-  for (int i = 0; i < SCREEN_WIDTH; i++)
-  {
-    tempReading = analogRead(AD8318_PIN);
-    tempReading += analogRead(AD8318_PIN);
-    tempReading += analogRead(AD8318_PIN);
-    samples[i] = tempReading / 3;
-  }
+  #ifdef ARDUINO_TARGET
+    for (int i = 0; i < SCREEN_WIDTH; ++i)
+    {
+      adcIn = analogRead(AD8318_PIN);
+      adcIn += analogRead(AD8318_PIN);
+      adcIn += analogRead(AD8318_PIN);
+      samples[i] = adcIn / 3;
+    }
+  #endif
+
+  #ifdef TTGO_LORA_V2_TARGET
+    for (int i = 0; i < SCREEN_WIDTH; ++i)
+    {
+      for (int j = 0; j < 50; ++j)
+      {
+        adcIn = analogRead(AD8318_PIN);
+        filter.update(adcIn);
+      }
+      samples[i] = filter.SmoothDataINT;
+    }
+  #endif
 
   samplingPeriod = millis() - startSampleingTime;
 
@@ -39,11 +58,17 @@ void sampleAd8318()
   maxSample = 0;
   meanSample = 0;
 
-  for (int i = 0; i < SCREEN_WIDTH; i++)
+  for (int i = 0; i < SCREEN_WIDTH; ++i)
   {
+    #ifdef ARDUINO_TARGET
+      float mV = (float)samples[i] * ((5000.0 + ADC_CORRECTION) / 1023.0);
+    #endif
 
-    float mV = (float)samples[i] * (5000.0 / 1023.0);
-    float dBm = mV/-24.5 + 56.0;
+    #ifdef TTGO_LORA_V2_TARGET
+      float mV = (float)samples[i] * ((3300.0 + ADC_CORRECTION) / 4095.0);
+    #endif
+
+    float dBm = mV/-24.5 + 22 + CORRECTION + ATTENUATOR;
 
     samples[i] = pow(10, (dBm / 10.0)); // dBm to mW
 
@@ -68,9 +93,8 @@ void sampleAd8318()
   meanSampledBm = 10.0 * log10(meanSample);
   maxSampledBm = 10.0 * log10(maxSample);
 
-  for (int i = 0; i < SCREEN_WIDTH; i++)
+  for (int i = 0; i < SCREEN_WIDTH; ++i)
   {
-    // samples[i] = map(samples[i], minSample, maxSample, 0, SCREEN_HEIGHT - 1 - 18);
     samples[i] = map(samples[i], minSample, maxSample, SCREEN_HEIGHT - 1 - 18, 0);
   }
 }
@@ -79,7 +103,7 @@ void drawPlot()
 {
   display.clearDisplay();
 
-  for (int i = 0; i < SCREEN_WIDTH - 1; i++)
+  for (int i = 0; i < SCREEN_WIDTH - 1; ++i)
   {
     display.drawLine(i, samples[i] + 18, i + 1, samples[i + 1] + 18, WHITE);
   }
@@ -100,8 +124,15 @@ void drawPlot()
   display.print(meanSampledBm);
   display.println(" dBm");
 
+  if (maxSampledBm > (ABS_MAX_INPUT_DBM + ATTENUATOR))
+  {
+    display.setCursor(30, 31);
+    display.print("OVER POWER!");
+  }
+  
   display.display();
 }
+
 void setup()
 {
   Serial.begin(115200);
@@ -127,7 +158,7 @@ void loop()
     sampleAd8318();
 
     drawPlot();
-
+    
     previousSampleTime = now;
   }
 }
